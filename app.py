@@ -4,52 +4,84 @@ import csv
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="ComplyAI", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="ComplyAI", page_icon="🛡️", layout="wide")
 
-st.markdown(
-    '''
-    <style>
-    .stApp { background: linear-gradient(135deg,#f8fafc 0%, #eef2ff 100%); }
-    .hero { padding:18px; border-radius:12px; background:linear-gradient(90deg,rgba(99,102,241,0.06), rgba(20,184,166,0.04)); }
-    .card { background: white; padding:16px; border-radius:12px; box-shadow: 0 6px 24px rgba(12,15,20,0.04); }
-    .muted { color:#6b7280; font-size:13px; }
-    .footer { color:#9ca3af; font-size:12px; }
-    </style>
-    ''', unsafe_allow_html=True
-)
+# CSS for modern look
+st.markdown("""
+<style>
+body {
+    background: #f9fafb;
+    color: #111827;
+    font-family: 'Inter', sans-serif;
+}
+.hero {
+    padding: 60px 30px;
+    background: linear-gradient(90deg, #6366f1, #10b981);
+    color: white;
+    border-radius: 12px;
+    text-align: center;
+}
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    margin: 10px;
+}
+.features h3 {
+    margin-bottom: 5px;
+    color: #111827;
+}
+.footer {
+    text-align: center;
+    color: #6b7280;
+    font-size: 13px;
+    padding: 20px;
+}
+.button-primary {
+    background-color: #6366f1;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
 
-col1, col2 = st.columns([3,1])
-with col1:
-    st.markdown('<div class="hero">', unsafe_allow_html=True)
-    st.markdown("### 🛡️ ComplyAI — AI-Powered Compliance Copilot for Startups")
-    st.markdown("Get tailored SOC 2 / ISO 27001 / GDPR checklists and guidance.")
-    st.markdown("</div>", unsafe_allow_html=True)
-with col2:
-    if os.path.exists("logo.png"):
-        st.image("logo.png", width=96)
-    else:
-        st.markdown("**Add logo.png to project root**", unsafe_allow_html=True)
+# Hero
+st.markdown('<div class="hero"><h1>ComplyAI</h1><p>AI-Powered Compliance Copilot for Startups</p></div>', unsafe_allow_html=True)
 
-st.write("")
+# Features section
+st.markdown("### Why ComplyAI")
+cols = st.columns(3)
+features = [
+    ("✅ Fast SOC 2 Readiness", "Get an actionable checklist in minutes."),
+    ("📄 Policy Drafts", "Generate professional policy templates instantly."),
+    ("🔍 Risk Prioritization", "Identify and prioritize your top compliance risks."),
+]
+for col, (title, desc) in zip(cols, features):
+    col.markdown(f'<div class="card"><h3>{title}</h3><p>{desc}</p></div>', unsafe_allow_html=True)
 
-with st.container():
-    left, right = st.columns([2,3])
-    with left:
-        st.markdown("### Input")
-        framework = st.selectbox("Framework", ["SOC 2", "ISO 27001", "GDPR"])
-        company_size = st.text_input("Company size", value="15")
-        cloud = st.selectbox("Cloud provider", ["AWS", "Azure", "GCP", "Other"])
-        tech_stack = st.text_area("Tech stack", value="Python, React, PostgreSQL")
-        primary_goal = st.selectbox("Primary goal", ["Readiness checklist", "Policy drafts", "Risk prioritization"])
-        generate = st.button("Generate recommendations")
-        st.markdown('<div class="muted">Tip: keep tech stack short for better output.</div>', unsafe_allow_html=True)
-    with right:
-        st.markdown("### Output")
-        output_box = st.empty()
-        output_box.info("Generated recommendations will appear here.")
+st.markdown("---")
 
+# Input + Output Section
+st.markdown("### Generate Compliance Recommendations")
+left, right = st.columns([2,3])
+with left:
+    framework = st.selectbox("Framework", ["SOC 2", "ISO 27001", "GDPR"])
+    company_size = st.text_input("Company size", value="15")
+    cloud = st.selectbox("Cloud provider", ["AWS", "Azure", "GCP", "Other"])
+    tech_stack = st.text_area("Tech stack", value="Python, React, PostgreSQL")
+    primary_goal = st.selectbox("Primary goal", ["Readiness checklist", "Policy drafts", "Risk prioritization"])
+    generate = st.button("Generate Recommendations")
+with right:
+    output_box = st.empty()
+    output_box.info("Your AI-generated recommendations will appear here.")
+
+# AI generation function
 def build_prompt(framework, company_size, cloud, tech_stack, primary_goal):
-    return f'''
+    return f"""
 You are a pragmatic cybersecurity compliance assistant.
 Produce a clear, startup-focused result for: {framework}.
 Company size: {company_size} employees.
@@ -60,7 +92,7 @@ Format:
 - Short executive summary (2 lines)
 - Bullet checklist with prioritized next steps
 - Example security policy titles (3 items) with 1-line descriptions
-'''
+"""
 
 if generate:
     api_key = st.secrets.get("OPENAI_API_KEY") if st.secrets else os.environ.get("OPENAI_API_KEY")
@@ -69,7 +101,7 @@ if generate:
     else:
         openai.api_key = api_key
         prompt = build_prompt(framework, company_size, cloud, tech_stack, primary_goal)
-        with st.spinner("Generating..."):
+        with st.spinner("Generating recommendations..."):
             try:
                 resp = openai.ChatCompletion.create(
                     model="gpt-4o-mini",
@@ -87,7 +119,8 @@ if generate:
                 st.error(f"AI request failed: {e}")
 
 st.markdown("---")
-st.markdown("### Join early access")
+# Waitlist CTA
+st.markdown("### Join Early Access")
 with st.form("waitlist_form"):
     wl_email = st.text_input("Work email")
     wl_company = st.text_input("Company (optional)")
@@ -107,5 +140,6 @@ with st.form("waitlist_form"):
                 writer.writerow([wl_email, wl_company, wl_role, datetime.utcnow().isoformat()])
             st.success("Added to waitlist!")
 
-st.markdown("---")
+# Footer
 st.markdown('<div class="footer">ComplyAI — Founder: Naveen • Prototype Demo</div>', unsafe_allow_html=True)
+
