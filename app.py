@@ -88,7 +88,7 @@ body {
     align-items: center;
 }
 .nav-logo img {
-    height: 80px;
+    height: 100px;
     margin-right: 10px;
     border-radius: 6px;
 }
