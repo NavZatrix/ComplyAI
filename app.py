@@ -88,14 +88,14 @@ body {
     align-items: center;
 }
 .nav-logo img {
-    height: 65px;
+    height: 80px;
     margin-right: 10px;
     border-radius: 6px;
 }
 .hero {
     padding: 100px 30px;
     background: linear-gradient(90deg, #6366f1, #10b981);
-    color: white;
+    color: black;
     border-radius: 12px;
     text-align: center;
     margin-top: 30px;
