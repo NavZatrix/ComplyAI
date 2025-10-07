@@ -1,84 +1,102 @@
 import streamlit as st
 from openai import OpenAI, APIError, RateLimitError, AuthenticationError
 
-# --- Page config ---
-st.set_page_config(
-    page_title="Compliance Copilot",
-    page_icon="⚖️",
-    layout="wide",
-)
+# --- Page setup ---
+st.set_page_config(page_title="Compliance Copilot", page_icon="⚖️", layout="centered")
 
-# --- Custom CSS for modern UI ---
+# --- Custom CSS ---
 st.markdown("""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@500&display=swap');
+
         body {
-            background: linear-gradient(135deg, #f7f9fb 0%, #eef2f5 100%);
             font-family: 'Inter', sans-serif;
-            color: #1e1e1e;
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
         }
         .main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-            background-color: white;
-            border-radius: 18px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+            padding: 0 !important;
         }
-        h1 {
+        .hero {
             text-align: center;
-            color: #1e1e1e;
+            padding-top: 4rem;
+            padding-bottom: 2rem;
+        }
+        .hero img {
+            width: 90px;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: 'Poppins', sans-serif;
             font-size: 2.5rem;
+            font-weight: 700;
+            color: #111827;
             margin-bottom: 0.5rem;
         }
-        h3 {
-            text-align: center;
-            color: #6b7280;
-            font-weight: 400;
-            margin-bottom: 2rem;
+        .hero p {
+            font-size: 1.1rem;
+            color: #4b5563;
+        }
+        .chat-box {
+            background: white;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 720px;
+            margin: 2rem auto;
         }
         textarea {
             border-radius: 12px !important;
+            border: 1px solid #e5e7eb !important;
+            font-size: 1rem !important;
         }
-        button[kind="primary"] {
+        .stButton > button {
             background-color: #2563eb !important;
             color: white !important;
+            border: none !important;
             border-radius: 12px !important;
             font-weight: 600 !important;
-            padding: 0.6rem 1.2rem !important;
+            padding: 0.6rem 1.4rem !important;
+            font-size: 1rem !important;
+        }
+        .response-box {
+            background: #f9fafb;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+            border-left: 4px solid #2563eb;
         }
         .footer {
             text-align: center;
             color: #6b7280;
             font-size: 0.9rem;
             margin-top: 3rem;
-        }
-        .logo {
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-            width: 90px;
-            margin-bottom: 1rem;
+            padding-bottom: 2rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Logo and Header ---
-st.markdown('<img src="app_logo.png" class="logo">', unsafe_allow_html=True)
-st.title("AI Compliance Copilot ⚖️")
-st.markdown("<h3>Your AI assistant for startup compliance and security</h3>", unsafe_allow_html=True)
+# --- Header ---
+st.markdown("""
+<div class="hero">
+    <img src="app_logo.png" alt="Logo">
+    <h1>Compliance Copilot ⚖️</h1>
+    <p>Your AI-powered assistant for startup compliance and security tasks.</p>
+</div>
+""", unsafe_allow_html=True)
 
-# --- Initialize OpenAI client ---
+# --- Chat UI Box ---
+st.markdown('<div class="chat-box">', unsafe_allow_html=True)
+
+st.markdown("### 💬 Ask your compliance question")
+user_input = st.text_area("Example: What are SOC 2 requirements for a SaaS company?", height=130)
+
+client = None
 try:
     client = OpenAI(api_key=st.secrets["general"]["OPENAI_API_KEY"])
 except Exception:
-    client = None
-    st.error("⚠️ Missing or invalid OpenAI API key. Please check your secrets.toml file.")
+    st.warning("⚠️ Missing or invalid OpenAI API key. Please check your `.streamlit/secrets.toml` file.")
 
-# --- Input Area ---
-st.markdown("### 💬 Ask your compliance question below")
-user_input = st.text_area("Example: *What are GDPR requirements for storing customer data?*", height=130)
-
-# --- Generate Answer ---
 if st.button("Ask Copilot"):
     if not user_input.strip():
         st.warning("Please enter a question before submitting.")
@@ -86,26 +104,30 @@ if st.button("Ask Copilot"):
         st.error("⚠️ Could not initialize OpenAI client. Check your API key setup.")
     else:
         try:
-            with st.spinner("Analyzing compliance data..."):
+            with st.spinner("Thinking..."):
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": "You are an expert compliance assistant for startups."},
+                        {"role": "system", "content": "You are an expert in startup compliance, cybersecurity, and privacy laws."},
                         {"role": "user", "content": user_input}
                     ],
                 )
             answer = response.choices[0].message.content
-            st.success("✅ Here’s what I found:")
-            st.markdown(f"<div style='padding: 1rem; background: #f9fafb; border-radius: 12px;'>{answer}</div>", unsafe_allow_html=True)
-
+            st.markdown(f"<div class='response-box'>{answer}</div>", unsafe_allow_html=True)
         except RateLimitError:
-            st.error("⚠️ You’ve run out of OpenAI credits. Please check your billing or update your API key.")
+            st.error("⚠️ You’ve exceeded your OpenAI quota. Please check billing or use a new key.")
         except AuthenticationError:
-            st.error("🔑 Invalid or missing API key. Please update your `.streamlit/secrets.toml` file.")
+            st.error("🔑 Invalid API key. Update your secrets.toml file.")
         except APIError as e:
             st.error(f"🚨 API Error: {e}")
         except Exception as e:
             st.error(f"Unexpected error: {e}")
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --- Footer ---
-st.markdown("<div class='footer'>Made with ❤️ by Nav | Powered by OpenAI</div>", unsafe_allow_html=True)
+st.markdown("""
+<div class="footer">
+    Built by <b>Nav</b> · Powered by <b>OpenAI</b> · © 2025 Compliance Copilot
+</div>
+""", unsafe_allow_html=True)
