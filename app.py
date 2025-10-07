@@ -1,133 +1,202 @@
 import streamlit as st
-from openai import OpenAI, APIError, RateLimitError, AuthenticationError
+import openai
+import csv
+import os
+from datetime import datetime
+from PIL import Image
 
-# --- Page setup ---
-st.set_page_config(page_title="Compliance Copilot", page_icon="⚖️", layout="centered")
+# --- Page config ---
+st.set_page_config(page_title="ComplyAI", page_icon="🛡️", layout="wide")
 
-# --- Custom CSS ---
+# --- Content dictionary ---
+content = {
+    "navbar": {
+        "logo": "logo.png",
+        "title": "ComplyAI",
+        "links": ["Demo", "Features", "Product", "Testimonials", "Waitlist"]
+    },
+    "hero": {
+        "title": "ComplyAI",
+        "subtitle": "AI-Powered Compliance Copilot for Startups",
+        "cta_text": "Try Demo →",
+        "cta_link": "#demo"
+    },
+    "features": [
+        {"title": "🚀 Fast SOC 2 Readiness", "desc": "Get an actionable checklist in minutes."},
+        {"title": "📄 Policy Drafts", "desc": "Generate professional policy templates instantly."},
+        {"title": "🔍 Risk Prioritization", "desc": "Identify and prioritize your top compliance risks."}
+    ],
+    "product_preview": {
+        "title": "Product Preview",
+        "description": "Explore the ComplyAI dashboard and see how recommendations are presented:",
+        "images": [
+            {"path": "assets/dashboard_mock.png", "caption": "Dashboard Overview"},
+            {"path": "assets/feature1.png", "caption": "Feature Example"}
+        ]
+    },
+    "testimonials": [
+        {"name": "Alice, CTO", "text": "ComplyAI saved us weeks of compliance work!"},
+        {"name": "Bob, Founder", "text": "Finally a tool that understands startup compliance."},
+        {"name": "Carol, Security Lead", "text": "The AI suggestions are actionable and clear."}
+    ],
+    "waitlist": {
+        "title": "Join Early Access",
+        "fields": ["Work email", "Company (optional)", "Role (optional)"],
+        "button": "Join Waitlist"
+    },
+    "footer": "ComplyAI — Founder: Naveen • Prototype Demo"
+}
+
+# --- CSS ---
 st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@500&display=swap');
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-        }
-        .main {
-            padding: 0 !important;
-        }
-        .hero {
-            text-align: center;
-            padding-top: 4rem;
-            padding-bottom: 2rem;
-        }
-        .hero img {
-            width: 90px;
-            margin-bottom: 1rem;
-        }
-        .hero h1 {
-            font-family: 'Poppins', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 0.5rem;
-        }
-        .hero p {
-            font-size: 1.1rem;
-            color: #4b5563;
-        }
-        .chat-box {
-            background: white;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-            border-radius: 16px;
-            padding: 2rem;
-            width: 90%;
-            max-width: 720px;
-            margin: 2rem auto;
-        }
-        textarea {
-            border-radius: 12px !important;
-            border: 1px solid #e5e7eb !important;
-            font-size: 1rem !important;
-        }
-        .stButton > button {
-            background-color: #2563eb !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 12px !important;
-            font-weight: 600 !important;
-            padding: 0.6rem 1.4rem !important;
-            font-size: 1rem !important;
-        }
-        .response-box {
-            background: #f9fafb;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            margin-top: 1rem;
-            border-left: 4px solid #2563eb;
-        }
-        .footer {
-            text-align: center;
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-top: 3rem;
-            padding-bottom: 2rem;
-        }
-    </style>
+<style>
+body { background: #f9fafb; font-family: 'Inter', sans-serif; color: #111827; }
+.navbar { width: 100%; background: white; padding: 12px 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 999; display: flex; align-items: center; justify-content: space-between; }
+.navbar a { color: #111827; margin-left: 25px; text-decoration: none; font-weight: 600; }
+.navbar a:hover { color: #6366f1; }
+.nav-logo { display: flex; align-items: center; }
+.nav-logo img { height: 40px; margin-right: 12px; }
+.hero { padding: 80px 30px; background: linear-gradient(90deg,#6366f1,#10b981); color: white; border-radius: 12px; text-align: center; margin-top:20px; }
+.hero h1 { font-size: 48px; margin-bottom: 10px; }
+.hero p { font-size: 20px; margin-bottom: 25px; }
+.button-primary { background-color: #ffffff; color: #6366f1; padding: 14px 28px; border-radius: 10px; font-weight: bold; text-decoration: none; }
+.features h3 { margin-bottom: 5px; color: #111827; }
+.card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); margin: 10px; text-align: center; }
+.section-title { text-align: center; padding-top: 60px; padding-bottom: 20px; font-size: 32px; font-weight: bold; }
+.footer { text-align: center; color: #6b7280; font-size: 13px; padding: 30px; }
+.card img { border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); margin-bottom: 10px; }
+</style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
-st.markdown("""
-<div class="hero">
-    <img src="app_logo.png" alt="Logo">
-    <h1>Compliance Copilot ⚖️</h1>
-    <p>Your AI-powered assistant for startup compliance and security tasks.</p>
+# --- Navbar ---
+links_html = "".join([f'<a href="#{link.lower()}">{link}</a>' for link in content["navbar"]["links"]])
+st.markdown(f"""
+<div class="navbar">
+    <div class="nav-logo">
+        <img src="{content['navbar']['logo']}" alt="{content['navbar']['title']} Logo">
+        <span style="font-weight:bold; font-size:20px;">{content['navbar']['title']}</span>
+    </div>
+    <div class="nav-links">{links_html}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- Chat UI Box ---
-st.markdown('<div class="chat-box">', unsafe_allow_html=True)
+# --- Sidebar Logo ---
+if os.path.exists(content["navbar"]["logo"]):
+    st.sidebar.image(content["navbar"]["logo"], width=120)
+st.sidebar.title(content["navbar"]["title"])
 
-st.markdown("### 💬 Ask your compliance question")
-user_input = st.text_area("Example: What are SOC 2 requirements for a SaaS company?", height=130)
+# --- Hero Section ---
+st.markdown(
+    f'<div class="hero"><h1>{content["hero"]["title"]}</h1>'
+    f'<p>{content["hero"]["subtitle"]}</p>'
+    f'<a class="button-primary" href="{content["hero"]["cta_link"]}">{content["hero"]["cta_text"]}</a></div>',
+    unsafe_allow_html=True
+)
 
-client = None
-try:
-    client = OpenAI(api_key=st.secrets["general"]["OPENAI_API_KEY"])
-except Exception:
-    st.warning("⚠️ Missing or invalid OpenAI API key. Please check your `.streamlit/secrets.toml` file.")
+# --- Features Section ---
+st.markdown('<div class="section-title" id="features">Why ComplyAI?</div>', unsafe_allow_html=True)
+cols = st.columns(3)
+for col, feature in zip(cols, content["features"]):
+    col.markdown(f'<div class="card"><h3>{feature["title"]}</h3><p>{feature["desc"]}</p></div>', unsafe_allow_html=True)
 
-if st.button("Ask Copilot"):
-    if not user_input.strip():
-        st.warning("Please enter a question before submitting.")
-    elif not client:
-        st.error("⚠️ Could not initialize OpenAI client. Check your API key setup.")
+st.markdown("---")
+
+# --- Demo Section ---
+st.markdown('<div class="section-title" id="demo">Live Demo</div>', unsafe_allow_html=True)
+left, right = st.columns([2,3])
+with left:
+    framework = st.selectbox("Framework", ["SOC 2", "ISO 27001", "GDPR"])
+    company_size = st.text_input("Company size", value="15")
+    cloud = st.selectbox("Cloud provider", ["AWS", "Azure", "GCP", "Other"])
+    tech_stack = st.text_area("Tech stack", value="Python, React, PostgreSQL")
+    primary_goal = st.selectbox("Primary goal", ["Readiness checklist", "Policy drafts", "Risk prioritization"])
+    generate = st.button("Generate Recommendations")
+with right:
+    output_box = st.empty()
+    output_box.info("Your AI-generated recommendations will appear here.")
+
+def build_prompt(framework, company_size, cloud, primary_goal):
+    return f"""
+You are a pragmatic cybersecurity compliance assistant.
+Produce a clear, startup-focused result for: {framework}.
+Company size: {company_size} employees.
+Cloud: {cloud}
+Tech stack: {tech_stack}
+Deliverable: {primary_goal}
+Format:
+- Short executive summary (2 lines)
+- Bullet checklist with prioritized next steps
+- Example security policy titles (3 items) with 1-line descriptions
+"""
+
+if generate:
+    api_key = st.secrets.get("OPENAI_API_KEY") if st.secrets else os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        st.error("OpenAI API key missing. Add OPENAI_API_KEY to .streamlit/secrets.toml or env var.")
     else:
-        try:
-            with st.spinner("Thinking..."):
-                response = client.chat.completions.create(
+        openai.api_key = api_key
+        prompt = build_prompt(framework, company_size, cloud, primary_goal)
+        with st.spinner("Generating recommendations..."):
+            try:
+                resp = openai.ChatCompletion.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": "You are an expert in startup compliance, cybersecurity, and privacy laws."},
-                        {"role": "user", "content": user_input}
+                        {"role": "system", "content": "You are a helpful cybersecurity compliance assistant."},
+                        {"role": "user", "content": prompt}
                     ],
+                    temperature=0.35,
+                    max_tokens=900
                 )
-            answer = response.choices[0].message.content
-            st.markdown(f"<div class='response-box'>{answer}</div>", unsafe_allow_html=True)
-        except RateLimitError:
-            st.error("⚠️ You’ve exceeded your OpenAI quota. Please check billing or use a new key.")
-        except AuthenticationError:
-            st.error("🔑 Invalid API key. Update your secrets.toml file.")
-        except APIError as e:
-            st.error(f"🚨 API Error: {e}")
-        except Exception as e:
-            st.error(f"Unexpected error: {e}")
+                text = resp["choices"][0]["message"]["content"].strip()
+                output_box.markdown(text)
+                st.download_button("📥 Download (TXT)", data=text, file_name=f"ComplyAI_{framework}.txt")
+            except Exception as e:
+                st.error(f"AI request failed: {e}")
 
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("---")
+
+# --- Product Preview Section ---
+st.markdown(f'<div class="section-title" id="product-preview">{content["product_preview"]["title"]}</div>', unsafe_allow_html=True)
+st.markdown(content["product_preview"]["description"])
+cols = st.columns(2)
+for col, img in zip(cols, content["product_preview"]["images"]):
+    if os.path.exists(img["path"]):
+        col.image(img["path"], caption=img["caption"], use_column_width=True)
+    else:
+        col.markdown(f'<div class="card"><p>[Add {img["path"]} in assets/ folder]</p></div>', unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- Testimonials Section ---
+st.markdown('<div class="section-title" id="testimonials">What Users Say</div>', unsafe_allow_html=True)
+cols = st.columns(3)
+for col, testimonial in zip(cols, content["testimonials"]):
+    col.markdown(f'<div class="card"><p>"{testimonial["text"]}"</p><b>{testimonial["name"]}</b></div>', unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- Waitlist Section ---
+st.markdown(f'<div class="section-title" id="waitlist">{content["waitlist"]["title"]}</div>', unsafe_allow_html=True)
+with st.form("waitlist_form"):
+    wl_email = st.text_input(content["waitlist"]["fields"][0])
+    wl_company = st.text_input(content["waitlist"]["fields"][1])
+    wl_role = st.text_input(content["waitlist"]["fields"][2])
+    wl_submit = st.form_submit_button(content["waitlist"]["button"])
+    if wl_submit:
+        if not wl_email:
+            st.warning("Enter an email.")
+        else:
+            os.makedirs("data", exist_ok=True)
+            path = os.path.join("data", "waitlist.csv")
+            first_write = not os.path.exists(path)
+            with open(path, "a", newline="") as f:
+                writer = csv.writer(f)
+                if first_write:
+                    writer.writerow(["email","company","role","timestamp"])
+                writer.writerow([wl_email, wl_company, wl_role, datetime.utcnow().isoformat()])
+            st.success("Added to waitlist!")
+
+st.markdown("---")
 
 # --- Footer ---
-st.markdown("""
-<div class="footer">
-    Built by <b>Nav</b> · Powered by <b>OpenAI</b> · © 2025 Compliance Copilot
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f'<div class="footer">{content["footer"]}</div>', unsafe_allow_html=True)
